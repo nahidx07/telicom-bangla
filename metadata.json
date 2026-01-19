@@ -1,0 +1,8 @@
+{
+  "name": "Telicom Bangla",
+  "description": "A comprehensive telecom and utility recharge platform with advanced user and admin panels.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
