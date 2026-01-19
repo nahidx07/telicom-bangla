@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { User } from './types';
 import { NAV_ITEMS } from './pages/user/constants';
+import { db, doc, getDoc, setDoc } from './firebase';
 
 // Pages - User Facing
 import LoginPage from './pages/admin/LoginPage';
@@ -30,7 +31,7 @@ const Layout: React.FC<{ children: React.ReactNode; user: User | null }> = ({ ch
                      location.pathname === '/register' || 
                      location.pathname === '/otp';
 
-  // Protecting User Routes
+  // Protecting User Routes (If not logged in and not an auth/admin path)
   if (!user && !location.pathname.startsWith('/admin') && !isAuthPath) {
     return <Navigate to="/login" />;
   }
@@ -67,10 +68,52 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('user');
     return saved ? JSON.parse(saved) : null;
   });
-
+  const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     return localStorage.getItem('isAdmin') === 'true';
   });
+
+  useEffect(() => {
+    const checkTelegramLogin = async () => {
+      // @ts-ignore
+      const tg = window.Telegram?.WebApp;
+      if (tg?.initDataUnsafe?.user) {
+        const tgUser = tg.initDataUnsafe.user;
+        const tgId = `TG_${tgUser.id}`;
+        
+        try {
+          const userDoc = await getDoc(doc(db, "users", tgId));
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as User;
+            setUser(userData);
+          } else {
+            // Auto register new Telegram user
+            const newUser: User = {
+              id: tgId,
+              mobile: tgUser.username || tgId,
+              email: `${tgUser.id}@telegram.com`,
+              name: `${tgUser.first_name} ${tgUser.last_name || ''}`.trim(),
+              pin: '0000', // Default PIN for TG users
+              balance: 0,
+              type: 'Normal',
+              deviceId: `TG-DEV-${tgUser.id}`,
+              isBlocked: false,
+              kycStatus: 'None'
+            };
+            await setDoc(doc(db, "users", tgId), newUser);
+            setUser(newUser);
+          }
+        } catch (error) {
+          console.error("Telegram Auto-login error:", error);
+        }
+      }
+      setLoading(false);
+      if (tg) tg.ready();
+    };
+
+    checkTelegramLogin();
+  }, []);
 
   useEffect(() => {
     if (user) localStorage.setItem('user', JSON.stringify(user));
@@ -80,6 +123,16 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('isAdmin', isAdmin.toString());
   }, [isAdmin]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8 text-center">
+        <div className="w-16 h-16 border-4 border-green-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <h2 className="text-xl font-bold text-gray-800">অপেক্ষা করুন...</h2>
+        <p className="text-gray-500 mt-2">আপনার একাউন্ট যাচাই করা হচ্ছে</p>
+      </div>
+    );
+  }
 
   return (
     <Router>
