@@ -2,17 +2,16 @@
  * Telegram Notification Service
  */
 
-// Прямой доступ к переменным окружения
-// Fix: Added @ts-ignore to suppress TypeScript error 'Property env does not exist on type ImportMeta'.
 // Vite requires the full static string 'import.meta.env.VITE_...' for build-time replacement.
+// Optional chaining added to prevent TypeError if import.meta.env is undefined.
 // @ts-ignore
-const BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN; 
+const BOT_TOKEN = import.meta.env?.VITE_TELEGRAM_BOT_TOKEN; 
 // @ts-ignore
-const ADMIN_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID;
+const ADMIN_CHAT_ID = import.meta.env?.VITE_TELEGRAM_CHAT_ID;
 
 export const sendAdminNotification = async (message: string) => {
   if (!BOT_TOKEN || !ADMIN_CHAT_ID) {
-    console.warn('Telegram Notification: Missing credentials. Please check Vercel environment variables.');
+    console.warn('Telegram Notification: Missing credentials. Please check environment variables.');
     return;
   }
 
