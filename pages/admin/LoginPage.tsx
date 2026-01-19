@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Phone, Lock, ArrowRight, Smartphone, UserPlus } from 'lucide-react';
 import { User } from '../../types';
-import { db, doc, getDoc } from '../../firebase';
+import { db, doc, getDoc, setDoc, auth, googleProvider, signInWithPopup, isFirebaseConfigured } from '../../firebase';
 
 interface LoginPageProps {
   onLogin: (user: User) => void;
@@ -13,6 +13,18 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Redirect if TG user is somehow on this page but already auto-detected
+  useEffect(() => {
+    // @ts-ignore
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        onLogin(JSON.parse(savedUser));
+        navigate('/');
+      }
+    }
+  }, [navigate, onLogin]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +52,56 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     } catch (error) {
       console.error("Login error: ", error);
       alert("লগইন করতে সমস্যা হয়েছে।");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (!isFirebaseConfigured) {
+      alert("Firebase কনফিগারেশন সেট করা হয়নি। অনুগ্রহ করে .env ফাইলে API Key যুক্ত করুন।");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      
+      if (user) {
+        const userId = `G_${user.uid}`;
+        const userDocRef = doc(db, "users", userId);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as User;
+          if (userData.isBlocked) {
+            alert("আপনার অ্যাকাউন্টটি ব্লক করা হয়েছে।");
+            return;
+          }
+          onLogin(userData);
+          navigate('/');
+        } else {
+          const newUser: User = {
+            id: userId,
+            mobile: user.phoneNumber || 'Google User',
+            email: user.email || '',
+            name: user.displayName || 'Unnamed User',
+            pin: '0000',
+            balance: 0,
+            type: 'Normal',
+            deviceId: `G-DEV-${user.uid.substring(0, 6)}`,
+            isBlocked: false,
+            kycStatus: 'None'
+          };
+          await setDoc(userDocRef, newUser);
+          onLogin(newUser);
+          navigate('/');
+        }
+      }
+    } catch (error) {
+      console.error("Google Sign-In Error:", error);
+      alert("গুগল লগইন সফল হয়নি। Firebase কনসোল থেকে Google Auth সক্ষম করা আছে কি না চেক করুন।");
     } finally {
       setLoading(false);
     }
@@ -95,7 +157,23 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         </button>
       </form>
 
-      {/* Registration Option */}
+      <div className="mt-6 flex flex-col gap-4">
+        <div className="flex items-center gap-4 text-gray-300">
+          <div className="h-[1px] bg-gray-100 flex-1"></div>
+          <span className="text-xs font-bold uppercase tracking-widest text-gray-400">অথবা</span>
+          <div className="h-[1px] bg-gray-100 flex-1"></div>
+        </div>
+
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full py-4 bg-white border border-gray-200 rounded-2xl flex items-center justify-center gap-3 font-bold text-gray-700 hover:bg-gray-50 transition-all active:scale-[0.98] shadow-sm"
+        >
+          <img src="https://img.icons8.com/color/48/google-logo.png" alt="Google" className="w-6 h-6" />
+          গুগল দিয়ে লগইন
+        </button>
+      </div>
+
       <div className="mt-10 text-center pb-8 border-t border-gray-50 pt-8">
         <p className="text-gray-500 mb-4 text-sm font-medium">একাউন্ট নেই? এখনই যুক্ত হোন!</p>
         <button
