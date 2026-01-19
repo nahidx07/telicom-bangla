@@ -1,3 +1,4 @@
+
 // Standard modular import for Firebase v9+
 // @ts-ignore
 import { initializeApp } from "firebase/app";
@@ -11,7 +12,9 @@ import {
   getDoc, 
   updateDoc, 
   query, 
-  where 
+  where,
+  orderBy,
+  limit
 } from "firebase/firestore";
 // @ts-ignore
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
@@ -47,4 +50,4 @@ export const googleProvider = new GoogleAuthProvider();
 export const isFirebaseConfigured = !!import.meta.env?.VITE_FIREBASE_API_KEY && import.meta.env?.VITE_FIREBASE_API_KEY !== "";
 
 // Helper Functions
-export { collection, addDoc, getDocs, doc, setDoc, getDoc, updateDoc, query, where, signInWithPopup, signOut };
+export { collection, addDoc, getDocs, doc, setDoc, getDoc, updateDoc, query, where, orderBy, limit, signInWithPopup, signOut };
