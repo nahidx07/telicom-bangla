@@ -3,6 +3,7 @@ import { HashRouter as Router, Routes, Route, Navigate, useNavigate, useLocation
 import { User } from './types';
 import { NAV_ITEMS } from './pages/user/constants';
 import { db, doc, getDoc, setDoc } from './firebase';
+import { sendAdminNotification, formatRegistrationMsg } from './services/telegramService';
 
 // Pages - User Facing
 import LoginPage from './pages/admin/LoginPage';
@@ -31,7 +32,6 @@ const Layout: React.FC<{ children: React.ReactNode; user: User | null }> = ({ ch
                      location.pathname === '/register' || 
                      location.pathname === '/otp';
 
-  // Protecting User Routes (If not logged in and not an auth/admin path)
   if (!user && !location.pathname.startsWith('/admin') && !isAuthPath) {
     return <Navigate to="/login" />;
   }
@@ -42,7 +42,6 @@ const Layout: React.FC<{ children: React.ReactNode; user: User | null }> = ({ ch
         {children}
       </main>
       
-      {/* Bottom Nav for Users */}
       {!location.pathname.startsWith('/admin') && user && !isAuthPath && (
         <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t flex justify-around items-center py-2 px-4 shadow-lg z-50">
           {NAV_ITEMS.map((item) => (
@@ -82,19 +81,19 @@ const App: React.FC = () => {
         const tgId = `TG_${tgUser.id}`;
         
         try {
+          // Use TG ID as document ID for easy lookup
           const userDoc = await getDoc(doc(db, "users", tgId));
           
           if (userDoc.exists()) {
             const userData = userDoc.data() as User;
             setUser(userData);
           } else {
-            // Auto register new Telegram user
             const newUser: User = {
               id: tgId,
-              mobile: tgUser.username || tgId,
+              mobile: tgUser.username || `TG_${tgUser.id}`,
               email: `${tgUser.id}@telegram.com`,
               name: `${tgUser.first_name} ${tgUser.last_name || ''}`.trim(),
-              pin: '0000', // Default PIN for TG users
+              pin: '0000',
               balance: 0,
               type: 'Normal',
               deviceId: `TG-DEV-${tgUser.id}`,
@@ -102,6 +101,7 @@ const App: React.FC = () => {
               kycStatus: 'None'
             };
             await setDoc(doc(db, "users", tgId), newUser);
+            await sendAdminNotification(formatRegistrationMsg(newUser));
             setUser(newUser);
           }
         } catch (error) {
@@ -137,12 +137,10 @@ const App: React.FC = () => {
   return (
     <Router>
       <Routes>
-        {/* Auth Routes */}
         <Route path="/login" element={<LoginPage onLogin={setUser} />} />
         <Route path="/register" element={<RegisterPage onRegister={setUser} />} />
         <Route path="/otp" element={<OtpPage onVerify={setUser} />} />
 
-        {/* User Routes */}
         <Route path="/" element={<Layout user={user}><UserHome user={user} /></Layout>} />
         <Route path="/profile" element={<Layout user={user}><ProfilePage user={user} onLogout={() => setUser(null)} /></Layout>} />
         <Route path="/transactions" element={<Layout user={user}><TransactionsPage user={user} /></Layout>} />
@@ -151,14 +149,12 @@ const App: React.FC = () => {
         <Route path="/add-money" element={<Layout user={user}><AddMoneyPage user={user} /></Layout>} />
         <Route path="/service/:type" element={<Layout user={user}><ServicePage user={user} /></Layout>} />
 
-        {/* Admin Routes */}
         <Route path="/admin/login" element={<AdminLogin onLogin={() => setIsAdmin(true)} />} />
         <Route path="/admin" element={isAdmin ? <AdminDashboard /> : <Navigate to="/admin/login" />} />
         <Route path="/admin/users" element={isAdmin ? <AdminUserMgmt /> : <Navigate to="/admin/login" />} />
         <Route path="/admin/packages" element={isAdmin ? <AdminPackageMgmt /> : <Navigate to="/admin/login" />} />
         <Route path="/admin/settings" element={isAdmin ? <AdminSettings /> : <Navigate to="/admin/login" />} />
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
