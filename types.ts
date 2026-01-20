@@ -27,16 +27,22 @@ export interface AppSettings {
   notice: string;
 }
 
+// Added missing properties: userMobile, method, senderMobile, transactionId
+// Made number and description optional to match usage in AddMoneyPage and ServicePage
 export interface Transaction {
   id: string;
   userId: string;
+  userMobile?: string;
   type: TransactionType;
   operator?: Operator;
-  number: string;
+  method?: string;
+  senderMobile?: string;
+  transactionId?: string;
+  number?: string;
   amount: number;
   status: Status;
   date: string;
-  description: string;
+  description?: string;
 }
 
 export interface Package {
