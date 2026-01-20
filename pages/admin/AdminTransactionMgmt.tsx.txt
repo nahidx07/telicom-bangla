@@ -1,0 +1,114 @@
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, Search, Filter } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { db, collection, getDocs, doc, updateDoc, getDoc } from '../../firebase';
+import { Transaction, User } from '../../types';
+
+const AdminTransactionMgmt: React.FC = () => {
+  const navigate = useNavigate();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'All' | 'Pending' | 'Success' | 'Failed'>('All');
+
+  const fetchTransactions = async () => {
+    setLoading(true);
+    try {
+      const snap = await getDocs(collection(db, "transactions"));
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
+      setTransactions(list.sort((a, b) => new Date(b.date || '').getTime() - new Date(a.date || '').getTime()));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchTransactions(); }, []);
+
+  const handleUpdateStatus = async (tx: Transaction, newStatus: 'Success' | 'Failed') => {
+    if (!window.confirm(`আপনি কি এই লেনদেনটি ${newStatus} হিসেবে মার্ক করতে চান?`)) return;
+
+    try {
+      await updateDoc(doc(db, "transactions", tx.id), { status: newStatus });
+      
+      // If Success and Add Money, Update User Balance
+      if (newStatus === 'Success' && tx.type === 'Add Money') {
+        const userRef = doc(db, "users", tx.userId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          const userData = userSnap.data() as User;
+          await updateDoc(userRef, { balance: (userData.balance || 0) + tx.amount });
+        }
+      }
+      
+      alert("স্ট্যাটাস সফলভাবে আপডেট করা হয়েছে!");
+      fetchTransactions();
+    } catch (error) {
+      alert("Error updating transaction");
+    }
+  };
+
+  const filtered = transactions.filter(t => filter === 'All' ? true : t.status === filter);
+
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-50 p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate('/admin')} className="p-2 bg-white rounded-lg shadow-sm border border-gray-100"><ArrowLeft /></button>
+          <h1 className="text-xl font-bold text-gray-800">Transaction Requests</h1>
+        </div>
+        <select 
+          className="p-2 rounded-xl bg-white border border-gray-200 text-sm font-bold outline-none"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as any)}
+        >
+          <option value="All">All Transactions</option>
+          <option value="Pending">Pending Only</option>
+          <option value="Success">Success Only</option>
+          <option value="Failed">Failed Only</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        {loading ? (
+          <p className="text-center py-10 text-gray-400">লোড হচ্ছে...</p>
+        ) : filtered.length > 0 ? filtered.map(tx => (
+          <div key={tx.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between gap-4">
+            <div className="flex gap-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                tx.type === 'Add Money' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'
+              }`}>
+                {tx.type === 'Add Money' ? <CheckCircle size={24} /> : <Clock size={24} />}
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-800">{tx.type} - ৳{tx.amount}</h3>
+                <p className="text-xs text-gray-500">{tx.number} • {tx.method || tx.operator}</p>
+                {tx.transactionId && <p className="text-[10px] font-mono mt-1 text-gray-400">TrxID: {tx.transactionId}</p>}
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 border-t md:border-t-0 pt-4 md:pt-0">
+              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
+                tx.status === 'Success' ? 'bg-green-50 text-green-600' : 
+                tx.status === 'Failed' ? 'bg-red-50 text-red-600' : 'bg-yellow-50 text-yellow-600'
+              }`}>
+                {tx.status}
+              </span>
+              
+              {tx.status === 'Pending' && (
+                <div className="flex gap-2 ml-4">
+                  <button onClick={() => handleUpdateStatus(tx, 'Success')} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600"><CheckCircle size={16}/></button>
+                  <button onClick={() => handleUpdateStatus(tx, 'Failed')} className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"><XCircle size={16}/></button>
+                </div>
+              )}
+            </div>
+          </div>
+        )) : (
+          <div className="bg-white p-10 text-center text-gray-400 rounded-2xl border border-dashed">কোনো রিকোয়েস্ট পাওয়া যায়নি</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AdminTransactionMgmt;
