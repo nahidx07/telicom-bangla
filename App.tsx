@@ -21,8 +21,10 @@ import UpdatePage from './pages/user/UpdatePage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminUserMgmt from './pages/admin/AdminUserMgmt';
 import AdminPackageMgmt from './pages/admin/AdminPackageMgmt';
-import AdminLogin from './AdminLogin'; // Root level
+import AdminLogin from './AdminLogin';
 import AdminSettings from './pages/admin/AdminSettings';
+import AdminTransactionMgmt from './pages/admin/AdminTransactionMgmt';
+import AdminPaymentMgmt from './pages/admin/AdminPaymentMgmt';
 
 const Layout: React.FC<{ children: React.ReactNode; user: User | null }> = ({ children, user }) => {
   const navigate = useNavigate();
@@ -81,9 +83,7 @@ const App: React.FC = () => {
         const tgId = `TG_${tgUser.id}`;
         
         try {
-          // Use TG ID as document ID for easy lookup
           const userDoc = await getDoc(doc(db, "users", tgId));
-          
           if (userDoc.exists()) {
             const userData = userDoc.data() as User;
             setUser(userData);
@@ -129,7 +129,6 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8 text-center">
         <div className="w-16 h-16 border-4 border-green-600 border-t-transparent rounded-full animate-spin mb-4"></div>
         <h2 className="text-xl font-bold text-gray-800">অপেক্ষা করুন...</h2>
-        <p className="text-gray-500 mt-2">আপনার একাউন্ট যাচাই করা হচ্ছে</p>
       </div>
     );
   }
@@ -154,6 +153,8 @@ const App: React.FC = () => {
         <Route path="/admin/users" element={isAdmin ? <AdminUserMgmt /> : <Navigate to="/admin/login" />} />
         <Route path="/admin/packages" element={isAdmin ? <AdminPackageMgmt /> : <Navigate to="/admin/login" />} />
         <Route path="/admin/settings" element={isAdmin ? <AdminSettings /> : <Navigate to="/admin/login" />} />
+        <Route path="/admin/transactions" element={isAdmin ? <AdminTransactionMgmt /> : <Navigate to="/admin/login" />} />
+        <Route path="/admin/payments" element={isAdmin ? <AdminPaymentMgmt /> : <Navigate to="/admin/login" />} />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
