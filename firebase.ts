@@ -11,6 +11,8 @@ import {
   setDoc, 
   getDoc, 
   updateDoc, 
+  // Added deleteDoc import
+  deleteDoc,
   query, 
   where,
   orderBy,
@@ -36,7 +38,7 @@ const firebaseConfig = {
   // @ts-ignore
   messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "000000000000",
   // @ts-ignore
-  appId: import.meta.env?.VITE_FIREBASE_APP_ID || "1:000000000000:web:0000000000000000000000"
+  appId: import.meta.env?.VITE_FIREBASE_APP_ID || "1:000000000000: web:0000000000000000000000"
 };
 
 // Initialize Firebase with the defensive config
@@ -50,4 +52,5 @@ export const googleProvider = new GoogleAuthProvider();
 export const isFirebaseConfigured = !!import.meta.env?.VITE_FIREBASE_API_KEY && import.meta.env?.VITE_FIREBASE_API_KEY !== "";
 
 // Helper Functions
-export { collection, addDoc, getDocs, doc, setDoc, getDoc, updateDoc, query, where, orderBy, limit, signInWithPopup, signOut };
+// Fixed: Added deleteDoc to the exports list to support administrative deletions
+export { collection, addDoc, getDocs, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, orderBy, limit, signInWithPopup, signOut };
