@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Smartphone, Send } from 'lucide-react';
 import { OPERATORS } from './constants';
-import { User, Operator } from '../../types';
+import { User, Operator, TransactionType } from '../../types';
 import { sendAdminNotification, formatOrderMsg } from '../../services/telegramService';
 import { db, collection, addDoc } from '../../firebase';
 
@@ -12,7 +12,7 @@ interface ServicePageProps {
 }
 
 const ServicePage: React.FC<ServicePageProps> = ({ user }) => {
-  const { type } = useParams<{ type: string }>();
+  const { type: pathType } = useParams<{ type: string }>();
   const navigate = useNavigate();
   
   const [selectedOperator, setSelectedOperator] = useState<Operator | null>(null);
@@ -21,50 +21,66 @@ const ServicePage: React.FC<ServicePageProps> = ({ user }) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  const getTitle = () => {
-    switch(type) {
+  const getTransactionType = (): TransactionType => {
+    switch(pathType) {
+      case 'internet': return 'Internet';
+      case 'minute': return 'Minute';
+      case 'bundle': return 'Offer';
+      case 'offers': return 'Offer';
+      case 'recharge': return 'Recharge';
+      case 'bank': return 'Bank Withdraw';
+      default: return 'Recharge';
+    }
+  };
+
+  const getLabel = () => {
+    switch(pathType) {
       case 'internet': return 'ইন্টারনেট প্যাক';
       case 'minute': return 'মিনিট অফার';
       case 'bundle': return 'বান্ডেল প্যাক';
       case 'offers': return 'মাই অফার';
       case 'recharge': return 'ফ্লেক্সিলোড';
+      case 'bank': return 'ব্যাংক উইথড্র';
+      case 'rocket': return 'রকেট ট্রান্সফার';
       default: return 'সার্ভিস অর্ডার';
     }
   };
 
   const handleSubmitOrder = async () => {
-    if (!user) return;
+    if (!user || !selectedOperator) return;
     setLoading(true);
     
+    const txType = getTransactionType();
     const txData = {
       userId: user.id,
       userMobile: user.mobile,
-      type: getTitle(),
+      type: txType,
       operator: selectedOperator,
       number: mobileNumber,
       amount: parseFloat(amount),
       status: 'Pending',
       date: new Date().toISOString(),
-      description: `${selectedOperator} ${getTitle()} for ${mobileNumber}`
+      description: `${selectedOperator} ${getLabel()} for ${mobileNumber}`
     };
 
     try {
-      // 1. Save to Firestore for Admin Panel
+      // 1. Save to Database
       await addDoc(collection(db, "transactions"), txData);
       
-      // 2. Send Telegram Notification to Admin
+      // 2. Notify Admin via Telegram
       await sendAdminNotification(formatOrderMsg({
         userMobile: user.mobile,
         targetNumber: mobileNumber,
         operator: selectedOperator,
-        type: getTitle(),
+        type: txType,
+        category: getLabel(),
         amount: amount
       }));
 
-      setStep(3); // Go to Success Screen
+      setStep(3);
     } catch (error) {
-      console.error("Order submission error:", error);
-      alert("অর্ডার সম্পন্ন করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+      console.error("Order error:", error);
+      alert("অর্ডার সম্পন্ন করা সম্ভব হয়নি।");
     } finally {
       setLoading(false);
     }
@@ -72,37 +88,31 @@ const ServicePage: React.FC<ServicePageProps> = ({ user }) => {
 
   const handleBack = () => step === 1 ? navigate('/') : setStep(step - 1);
 
-  // Success Screen
   if (step === 3) {
     return (
-      <div className="flex flex-col h-full bg-white p-6 justify-center items-center text-center animate-in zoom-in-95 duration-500">
-        <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-green-50">
-          <CheckCircle2 size={56} />
+      <div className="flex flex-col h-full bg-white p-6 justify-center items-center text-center">
+        <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
+          <CheckCircle2 size={48} />
         </div>
-        <h3 className="text-2xl font-bold text-gray-800">অনুরোধ সফল হয়েছে!</h3>
-        <p className="text-gray-500 mt-2 max-w-xs">আপনার রিচার্জ অনুরোধটি সফলভাবে গ্রহণ করা হয়েছে। ২০-৩০ মিনিটের মধ্যে প্রসেস করা হবে।</p>
+        <h3 className="text-2xl font-bold text-gray-800">অনুরোধ পাঠানো হয়েছে!</h3>
+        <p className="text-gray-500 mt-2 px-4 text-sm">আমাদের এডমিন আপনার অনুরোধটি যাচাই করছেন। শীঘ্রই আপনার নাম্বারে রিচার্জ সম্পন্ন হবে।</p>
         
-        <div className="w-full bg-gray-50 p-6 rounded-[32px] mt-8 flex flex-col gap-4 border border-gray-100">
+        <div className="w-full bg-gray-50 p-6 rounded-3xl mt-8 flex flex-col gap-3 border border-gray-100">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-400 font-medium">অপারেটর</span>
-            <span className="font-bold text-gray-800">{selectedOperator}</span>
+            <span className="text-gray-400">অপারেটর</span>
+            <span className="font-bold">{selectedOperator}</span>
           </div>
           <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-400 font-medium">পরিমান</span>
-            <span className="font-bold text-green-600 text-lg">৳{amount}</span>
+            <span className="text-gray-400">পরিমান</span>
+            <span className="font-bold text-green-600">৳{amount}</span>
           </div>
           <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-400 font-medium">নাম্বার</span>
-            <span className="font-bold text-gray-800">{mobileNumber}</span>
+            <span className="text-gray-400">নাম্বার</span>
+            <span className="font-bold">{mobileNumber}</span>
           </div>
         </div>
 
-        <button
-          onClick={() => navigate('/')}
-          className="w-full mt-10 py-5 bg-gray-900 text-white rounded-2xl font-bold shadow-xl active:scale-[0.98] transition-all"
-        >
-          হোমে ফিরে যান
-        </button>
+        <button onClick={() => navigate('/')} className="w-full mt-10 py-4 bg-gray-900 text-white rounded-2xl font-bold">হোমে ফিরে যান</button>
       </div>
     );
   }
@@ -111,21 +121,21 @@ const ServicePage: React.FC<ServicePageProps> = ({ user }) => {
     <div className="flex flex-col h-full bg-gray-50">
       <div className="bg-white border-b p-4 flex items-center gap-4 sticky top-0 z-10 shadow-sm">
         <button onClick={handleBack} className="p-2 bg-gray-50 rounded-xl"><ArrowLeft size={20} /></button>
-        <h2 className="text-lg font-bold text-gray-800">{getTitle()}</h2>
+        <h2 className="text-lg font-bold text-gray-800">{getLabel()}</h2>
       </div>
 
       <div className="p-4 flex flex-col gap-6">
         {step === 1 && (
-          <div className="flex flex-col gap-4 animate-in slide-in-from-right-4">
-            <p className="text-sm text-gray-500 font-bold uppercase tracking-wider ml-1">অপারেটর সিলেক্ট করুন</p>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-gray-400 font-bold uppercase tracking-wider ml-1">অপারেটর বেছে নিন</p>
             <div className="grid grid-cols-2 gap-4">
               {OPERATORS.map(op => (
                 <button
                   key={op.name}
                   onClick={() => { setSelectedOperator(op.name); setStep(2); }}
-                  className="flex flex-col items-center gap-3 p-6 rounded-[32px] border bg-white shadow-sm hover:border-green-500 hover:bg-green-50 transition-all group"
+                  className="flex flex-col items-center gap-3 p-6 rounded-[32px] border bg-white shadow-sm hover:border-green-500 hover:bg-green-50 transition-all"
                 >
-                  <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-gray-50 group-hover:border-white shadow-sm">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-100">
                     <img src={op.logo} alt={op.name} className="w-full h-full object-cover" />
                   </div>
                   <span className="font-bold text-gray-800">{op.name}</span>
@@ -136,51 +146,40 @@ const ServicePage: React.FC<ServicePageProps> = ({ user }) => {
         )}
 
         {step === 2 && (
-          <div className="flex flex-col gap-6 animate-in slide-in-from-bottom-4">
+          <div className="flex flex-col gap-6">
             <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 flex flex-col gap-6">
-              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
-                <img src={OPERATORS.find(o => o.name === selectedOperator)?.logo} className="w-12 h-12 rounded-full border-2 border-white shadow-sm" />
-                <div>
-                  <p className="text-xs text-gray-400 font-bold uppercase tracking-tighter">Selected Operator</p>
-                  <p className="font-bold text-gray-800">{selectedOperator} - {getTitle()}</p>
-                </div>
-              </div>
-
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">মোবাইল নাম্বার</label>
+                <label className="text-xs font-bold text-gray-400 uppercase ml-1">মোবাইল নাম্বার</label>
                 <div className="relative">
                   <input
                     type="tel"
                     placeholder="01XXXXXXXXX"
-                    className="w-full p-5 pl-14 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none transition-all text-lg font-bold"
+                    className="w-full p-4 pl-12 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-green-500 outline-none transition-all font-bold"
                     value={mobileNumber}
                     onChange={(e) => setMobileNumber(e.target.value)}
                   />
-                  <Smartphone className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={24} />
+                  <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                 </div>
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">পরিমান (৳)</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    className="w-full p-5 pl-14 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none transition-all text-2xl font-black text-green-600"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                  />
-                  <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xl">৳</div>
-                </div>
+                <label className="text-xs font-bold text-gray-400 uppercase ml-1">পরিমান (৳)</label>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  className="w-full p-4 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-green-500 outline-none transition-all text-xl font-bold text-green-600"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
               </div>
             </div>
 
             <button
               disabled={mobileNumber.length < 11 || !amount || loading}
               onClick={handleSubmitOrder}
-              className="w-full bg-green-600 text-white font-bold py-5 rounded-2xl shadow-xl shadow-green-100 disabled:bg-gray-200 disabled:shadow-none active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              className="w-full bg-green-600 text-white font-bold py-5 rounded-2xl shadow-lg disabled:bg-gray-200 transition-all flex items-center justify-center gap-2"
             >
-              <Send size={20} /> {loading ? 'প্রসেসিং...' : 'রিকুয়েস্ট পাঠান'}
+              <Send size={20} /> {loading ? 'লোড হচ্ছে...' : 'অর্ডার কনফার্ম করুন'}
             </button>
           </div>
         )}
