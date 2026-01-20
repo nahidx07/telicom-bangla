@@ -1,7 +1,7 @@
 import React from 'react';
 import { User } from '../../types';
-import { Bell, PlusCircle, Settings, Smartphone } from 'lucide-react';
-import { SERVICE_GRID, OPERATORS } from './constants';
+import { Bell, PlusCircle, Smartphone } from 'lucide-react';
+import { SERVICE_GRID } from './constants';
 import { useNavigate } from 'react-router-dom';
 
 interface UserHomeProps {
@@ -24,7 +24,7 @@ const UserHome: React.FC<UserHomeProps> = ({ user }) => {
             <h1 className="text-gray-800 font-bold text-lg leading-tight">Telicom Bangla</h1>
             <div className="flex items-center gap-1">
               <span className="bg-yellow-400 text-black text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                👑 স্বাধীন
+                👑 {user.type === 'Agent' ? 'এজেন্ট' : 'স্বতন্ত্র'}
               </span>
             </div>
           </div>
@@ -75,13 +75,6 @@ const UserHome: React.FC<UserHomeProps> = ({ user }) => {
           </button>
         ))}
       </div>
-
-      <button 
-        onClick={() => navigate('/admin/login')}
-        className="fixed right-4 bottom-24 w-12 h-12 bg-gray-400 rounded-xl flex items-center justify-center text-white shadow-lg active:scale-90 transition-transform"
-      >
-        <Settings size={28} />
-      </button>
 
       <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
         <h3 className="text-blue-800 font-bold text-sm mb-1 flex items-center gap-2">
