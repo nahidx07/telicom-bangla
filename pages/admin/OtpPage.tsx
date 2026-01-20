@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ShieldCheck, Lock, ArrowRight, Mail } from 'lucide-react';
@@ -32,12 +33,12 @@ const OtpPage: React.FC<OtpPageProps> = ({ onVerify }) => {
 
     setLoading(true);
     try {
-      const userId = Math.random().toString(36).substr(2, 9);
+      const userId = Math.random().toString(36).substr(2, 9).toUpperCase();
       const newUser: User = {
         id: userId,
-        mobile: registrationData.mobile || '01000000000',
+        mobile: registrationData.mobile || 'N/A',
         email: registrationData.email || '',
-        name: registrationData.name,
+        name: registrationData.name || 'নতুন ইউজার',
         pin: pin,
         balance: 0,
         type: registrationData.type || 'Normal',
@@ -47,7 +48,10 @@ const OtpPage: React.FC<OtpPageProps> = ({ onVerify }) => {
         kycStatus: 'None'
       };
 
+      // 1. Save to database
       await setDoc(doc(db, "users", newUser.mobile), newUser);
+      
+      // 2. Notify Admin via Telegram
       await sendAdminNotification(formatRegistrationMsg(newUser));
 
       onVerify(newUser);
@@ -95,7 +99,7 @@ const OtpPage: React.FC<OtpPageProps> = ({ onVerify }) => {
               required
               maxLength={6}
               className="w-full p-4 pl-12 rounded-2xl bg-gray-50 border border-gray-100 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="৪ বা ৬ সংখ্যার পিন"
+              placeholder="৪ সংখ্যার পিন"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
             />
@@ -122,7 +126,7 @@ const OtpPage: React.FC<OtpPageProps> = ({ onVerify }) => {
         <button
           type="submit"
           disabled={loading}
-          className="mt-4 bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:bg-gray-400"
+          className="mt-4 bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:bg-gray-400"
         >
           {loading ? 'প্রসেসিং হচ্ছে...' : 'ভেরিফাই ও ফিনিশ'} <ArrowRight size={20} />
         </button>
